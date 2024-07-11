@@ -53,14 +53,16 @@ func (s *scopeCdxGroup) scopes() func(d *gorm.DB) *gorm.DB {
 				d.Where(v.wherestr, v.val...)
 			}
 			for _, v := range s.sub {
-				d.Where(v.scopesSub(d, s))
+				d = v.scopesSub(d, s)
 			}
+
 		case or:
 			for _, v := range s.data {
 				d.Or(v.wherestr, v.val...)
 			}
 			for _, v := range s.sub {
-				d.Or(v.scopesSub(d, s))
+				//d.Or(v.scopesSub(d, s))
+				d = v.scopesSub(d, s)
 			}
 		}
 		d.Order(strings.Join(s.orderField, ","))
@@ -75,9 +77,9 @@ func (s *scopeCdxGroup) scopes() func(d *gorm.DB) *gorm.DB {
 }
 
 func (s *scopeCdxGroup) scopesSub(db *gorm.DB, p *scopeCdxGroup) *gorm.DB {
-	db = db.Session(&gorm.Session{
-		NewDB: true,
-	})
+	//db = db.Session(&gorm.Session{
+	//	NewDB: true,
+	//})
 	switch s.combainCdx {
 	case and:
 		for _, v := range s.data {
@@ -117,11 +119,11 @@ func toScopeWhereMap(i interface{}, nameFormat schema.Namer, dialector gorm.Dial
 		refv = refv.Elem()
 		reft = reft.Elem()
 	}
-	fieldlength := refv.NumField()
-	for i := 0; i < fieldlength; i++ {
+	fieldLength := refv.NumField()
+	for i := 0; i < fieldLength; i++ {
 		fieldValue := refv.Field(i)
 		fieldType := reft.Field(i)
-		//0 值跳过
+		// skip zero value
 		if fieldValue.IsZero() ||
 			(fieldValue.Kind() == reflect.Ptr && fieldValue.IsNil()) ||
 			(fieldValue.Kind() == reflect.Slice && fieldValue.Len() == 0) {
@@ -193,13 +195,11 @@ func toScopeWhereMap(i interface{}, nameFormat schema.Namer, dialector gorm.Dial
 			whereStr, count := paresWhere(fieldName, fieldTag, dialector)
 			val := make([]interface{}, 0)
 			for i := 0; i < count; i++ {
-				//between 需要将切片拆开
 				switch fieldTag {
 				case "between", "not between":
 					if fieldValue.Kind() == reflect.Slice && fieldValue.Len() == 2 {
 						val = append(val, fieldValue.Index(0).Interface(), fieldValue.Index(1).Interface())
 					}
-				//like
 				case "like":
 					str := fmt.Sprint(fieldValue.Interface())
 					if (!strings.Contains(str, "%")) || (strings.Contains(str, "%") && strings.Count(str, "%") == strings.Count(str, `\%`)) {
